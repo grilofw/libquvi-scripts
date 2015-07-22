@@ -62,4 +62,4 @@ done
 mkdir -p m4
 
 echo "Generate configuration files..."
-autoreconf -if && echo "You can now run 'configure'"
+autoreconf -if && ./configure "$@"
