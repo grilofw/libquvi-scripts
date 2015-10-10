@@ -72,10 +72,11 @@ end
 function Vimeo.config_new(qargs)
   local U = require 'socket.url'
   local t = U.parse(qargs.input_url)
+  t.scheme = 'https'
   t.host = 'player.vimeo.com'
   t.path = table.concat({'/video/', qargs.id})
   local p = quvi.http.fetch(U.build(t)).data
-  return p:match('b=(.-);') or error('no match: b')
+  return p:match('var t=(.-);') or error('no match: b')
 end
 
 function Vimeo.thumb_new(j)
