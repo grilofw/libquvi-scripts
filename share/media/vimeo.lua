@@ -59,7 +59,7 @@ function Vimeo.can_parse_url(qargs)
   Vimeo.normalize(qargs)
   local U = require 'socket.url'
   local t = U.parse(qargs.input_url)
-  if t and t.scheme and t.scheme:lower():match('^http$')
+  if t and t.scheme and t.scheme:lower():match('^https?$')
        and t.host   and t.host:lower():match('vimeo%.com$')
        and t.path   and t.path:lower():match('^/%d+$')
   then
@@ -72,10 +72,11 @@ end
 function Vimeo.config_new(qargs)
   local U = require 'socket.url'
   local t = U.parse(qargs.input_url)
+  t.scheme = 'https'
   t.host = 'player.vimeo.com'
   t.path = table.concat({'/video/', qargs.id})
   local p = quvi.http.fetch(U.build(t)).data
-  return p:match('b=(.-);') or error('no match: b')
+  return p:match('var t=(.-);') or error('no match: b')
 end
 
 function Vimeo.thumb_new(j)
