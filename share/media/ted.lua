@@ -74,45 +74,36 @@ end
 function Ted.iter_streams(qargs, p)
   qargs.streams = {}
 
-  local d = p:match('talkDetails%s+=%s+(.-)<') or ''
-  if #d ==0 then return end
+  local d = p:match('talkPage.init",(.-)%)<') or ''
+  if #d == 0 then return end
 
   local S = require 'quvi/stream'
   local J = require 'json'
   local j = J.decode(d)
 
-  Ted.rtmp_streams(qargs, S, J, j)
-  Ted.html_streams(qargs, S, j)
+  --Ted.rtmp_streams(qargs, S, J, j)
+  Ted.native_downloads(qargs, S, J, j)
 
-  qargs.duration_ms = tonumber(j['duration'] or 0) * 1000
-  qargs.thumb_url = j['posterUrl'] or ''
-  qargs.id = j['id'] or ''
-
+  for _,v in pairs(j['talks']) do
+    qargs.duration_ms = tonumber(v['duration'] or 0) * 1000
+    qargs.thumb_url = v['thumbs'] or ''
+    qargs.id = v['id'] or ''
+  end
   if #qargs.streams >1 then
     Ted.ch_best(qargs, S)
   end
 end
 
-function Ted.html_streams(qargs, S, j)
-  local h = j['htmlStreams']
-  for i=1, #h do
-    local u = h[i]['file']
-    local t = S.stream_new(u)
-    t.video.bitrate_kbit_s = tonumber(u:match('(%d+)k') or 0)
-    t.container = u:match('%d+k%.(%w+)') or ''
-    t.id = Ted.html_stream_id(h[i]['id'], t)
-    table.insert(qargs.streams, t)
-  end
-end
-
+-- this correctly identifies the rtmp URLs but leads to
+-- "error: protocol `rtmp` is not supported" on quvi get.
+--
+-- This is unfortunate as the rtmp streams provide better
+-- resolution than the native downloads
 function Ted.rtmp_streams(qargs, S, J, j)
-  local U = require 'quvi/util'
-  local l = J.decode(U.unescape(j['flashVars']['playlist']))
-
-  for _,v in pairs(l['talks']) do
+  for _,v in pairs(j['talks']) do
     local s = v['streamer'] or error('no match: streamer')
 
-    for _,vv in pairs(v['resource']) do
+    for _,vv in pairs(v['resources']['rtmp']) do
       local u = table.concat({s,vv['file']:match('^%w+:(.-)$')},'/')
       local t = S.stream_new(u)
 
@@ -128,8 +119,16 @@ function Ted.rtmp_streams(qargs, S, J, j)
   end
 end
 
-function Ted.html_stream_id(id, t)
-  return string.format('%s_%s_%sk', id, t.container, t.video.bitrate_kbit_s)
+-- this identifies the highest format native (HTTP)
+-- download, which unfortunately is of lower quality than
+-- the rtmp streams
+function Ted.native_downloads(qargs, S, J, j)
+  for _,v in pairs(j['talks']) do
+    local u = v['nativeDownloads']['high']
+    local t = S.stream_new(u)
+    t.video.height = tonumber(u:match('-(%d+)p%.') or 0)
+    table.insert(qargs.streams, t)
+  end 
 end
 
 function Ted.rtmp_stream_id(t)
